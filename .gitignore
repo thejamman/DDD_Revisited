@@ -1,11 +1,17 @@
-
+gitignore/*
+gitignore.meta
 
 Derby/Temp
 
 Derby/Build/*
 Derby/Library
 
+
+*.unityproj
 Temp
-Derby/*.csproj
-Derby/*.pidb
-Derby/*.sln
+*.csproj
+*.csproj.meta
+*.pidb
+*.pidb.meta
+*.sln
+*.sln.meta
