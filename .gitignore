@@ -1,11 +1,11 @@
 
 
-DDD/Temp
+Derby/Temp
 
-DDD/Build/*
-DDD/Library
+Derby/Build/*
+Derby/Library
 
 Temp
-DDD/*.csproj
-DDD/*.pidb
-DDD/*.sln
+Derby/*.csproj
+Derby/*.pidb
+Derby/*.sln
