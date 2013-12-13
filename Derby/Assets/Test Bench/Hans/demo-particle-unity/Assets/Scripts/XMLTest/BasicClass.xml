@@ -1,0 +1,9 @@
+﻿<Cartest>
+  <BasicXMLClass speed="100" armor="100">
+    <Types>
+      <string>Heavy</string>
+      <string>Medium</string>
+      <string>Light</string>
+    </Types>
+  </BasicXMLClass>
+</Cartest>
