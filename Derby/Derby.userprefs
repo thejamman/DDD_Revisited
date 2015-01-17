@@ -1,11 +1,8 @@
 ﻿<Properties>
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="Assets\Scripts\Weapons\ExplosionControl.cs">
+  <MonoDevelop.Ide.Workspace />
+  <MonoDevelop.Ide.Workbench ActiveDocument="..\..\ShaderProject\Assets\Standard Assets (Mobile)\Shaders\NewComputeShader.compute">
     <Files>
-      <File FileName="Assets\Scripts\Car\CarControl.cs" Line="1" Column="19" />
-      <File FileName="Assets\Scripts\Car\TireControl.cs" Line="1" Column="1" />
-      <File FileName="Assets\Scripts\Utility\InputController.cs" Line="1" Column="1" />
-      <File FileName="Assets\Scripts\Weapons\ExplosionControl.cs" Line="37" Column="39" />
+      <File FileName="..\..\ShaderProject\Assets\Standard Assets (Mobile)\Shaders\NewComputeShader.compute" Line="17" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
