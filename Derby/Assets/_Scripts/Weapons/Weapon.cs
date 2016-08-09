@@ -41,7 +41,7 @@ public class Weapon : MonoBehaviour {
 				StartCoroutine(WaitForDistance(mouseHit.point));
 				m_MuzzelFlash.Emit();
 				m_MuzzelLight.enabled = true;
-				audio.PlayOneShot(m_FireSound);
+				GetComponent<AudioSource>().PlayOneShot(m_FireSound);
 				m_LastFired = Time.time;
 			}
 		}

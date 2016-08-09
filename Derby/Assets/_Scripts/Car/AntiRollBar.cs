@@ -30,11 +30,11 @@ public class AntiRollBar : MonoBehaviour {
 		
 		if (groundedL)
 		{
-			rigidbody.AddForceAtPosition(m_leftWheelCollider.transform.up * -antiRollForce, m_leftWheelCollider.transform.position);	
+			GetComponent<Rigidbody>().AddForceAtPosition(m_leftWheelCollider.transform.up * -antiRollForce, m_leftWheelCollider.transform.position);	
 		}
 		if (groundedR)
 		{
-			rigidbody.AddForceAtPosition(m_rightWheelCollider.transform.up * antiRollForce, m_rightWheelCollider.transform.position);
+			GetComponent<Rigidbody>().AddForceAtPosition(m_rightWheelCollider.transform.up * antiRollForce, m_rightWheelCollider.transform.position);
 		}
 	}
 }

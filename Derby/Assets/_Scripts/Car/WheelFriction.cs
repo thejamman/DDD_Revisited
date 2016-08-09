@@ -107,7 +107,7 @@ public class WheelFriction : MonoBehaviour {
 		BackRightWheel.sidewaysFriction = backRightSideFriction;
 
 		// The rigidbody velocity is always given in world space, but in order to work in local space of the car model we need to transform it first.
-		Vector3 relativeVelocity = transform.InverseTransformDirection(rigidbody.velocity);
+		Vector3 relativeVelocity = transform.InverseTransformDirection(GetComponent<Rigidbody>().velocity);
 		UpdateFriction(relativeVelocity);
 	}
 

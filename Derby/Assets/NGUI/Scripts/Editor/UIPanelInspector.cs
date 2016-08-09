@@ -1,11 +1,13 @@
 //----------------------------------------------
 //            NGUI: Next-Gen UI kit
-// Copyright © 2011-2013 Tasharen Entertainment
+// Copyright © 2011-2016 Tasharen Entertainment
 //----------------------------------------------
 
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
+using UnityEditorInternal;
+using System.Reflection;
 
 /// <summary>
 /// Editor class used to view panels.
@@ -38,6 +40,12 @@ public class UIPanelInspector : UIRectEditor
 		mPanel = target as UIPanel;
 	}
 
+	protected override void OnDisable ()
+	{
+		base.OnDisable();
+		NGUIEditorTools.HideMoveTool(false);
+	}
+
 	/// <summary>
 	/// Helper function that draws draggable knobs.
 	/// </summary>
@@ -59,14 +67,21 @@ public class UIPanelInspector : UIRectEditor
 		}
 	}
 
-	void OnDisable () { NGUIEditorTools.HideMoveTool(false); }
-
 	/// <summary>
 	/// Handles & interaction.
 	/// </summary>
 
 	public void OnSceneGUI ()
 	{
+		if (Selection.objects.Length > 1) return;
+
+		UICamera cam = UICamera.FindCameraForLayer(mPanel.gameObject.layer);
+#if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7
+		if (cam == null || !cam.cachedCamera.isOrthoGraphic) return;
+#else
+		if (cam == null || !cam.cachedCamera.orthographic) return;
+#endif
+
 		NGUIEditorTools.HideMoveTool(true);
 		if (!UIWidget.showHandles) return;
 
@@ -86,12 +101,12 @@ public class UIPanelInspector : UIRectEditor
 		NGUIHandles.DrawShadowedLine(handles, handles[2], handles[3], handlesColor);
 		NGUIHandles.DrawShadowedLine(handles, handles[0], handles[3], handlesColor);
 
-		if (mPanel.isAnchored && mAction == UIWidgetInspector.Action.None)
+		if (mPanel.isAnchored)
 		{
-			UIWidgetInspector.DrawAnchor(mPanel.leftAnchor, mPanel.cachedTransform, handles, 0, id);
-			UIWidgetInspector.DrawAnchor(mPanel.topAnchor, mPanel.cachedTransform, handles, 1, id);
-			UIWidgetInspector.DrawAnchor(mPanel.rightAnchor, mPanel.cachedTransform, handles, 2, id);
-			UIWidgetInspector.DrawAnchor(mPanel.bottomAnchor, mPanel.cachedTransform, handles, 3, id);
+			UIWidgetInspector.DrawAnchorHandle(mPanel.leftAnchor, mPanel.cachedTransform, handles, 0, id);
+			UIWidgetInspector.DrawAnchorHandle(mPanel.topAnchor, mPanel.cachedTransform, handles, 1, id);
+			UIWidgetInspector.DrawAnchorHandle(mPanel.rightAnchor, mPanel.cachedTransform, handles, 2, id);
+			UIWidgetInspector.DrawAnchorHandle(mPanel.bottomAnchor, mPanel.cachedTransform, handles, 3, id);
 		}
 
 		if (type == EventType.Repaint)
@@ -103,29 +118,27 @@ public class UIPanelInspector : UIRectEditor
 		}
 
 		bool canResize = (mPanel.clipping != UIDrawCall.Clipping.None);
+
+		// NOTE: Remove this part when it's possible to neatly resize rotated anchored panels.
+		if (canResize && mPanel.isAnchored)
+		{
+			Quaternion rot = mPanel.cachedTransform.localRotation;
+			if (Quaternion.Angle(rot, Quaternion.identity) > 0.01f) canResize = false;
+		}
+
 		bool[] resizable = new bool[8];
 
-		resizable[4] = canResize && mPanel.leftAnchor.target == null;	// left
-		resizable[5] = canResize && mPanel.topAnchor.target == null;	// top
-		resizable[6] = canResize && mPanel.rightAnchor.target == null;	// right
-		resizable[7] = canResize && mPanel.bottomAnchor.target == null;	// bottom
+		resizable[4] = canResize;	// left
+		resizable[5] = canResize;	// top
+		resizable[6] = canResize;	// right
+		resizable[7] = canResize;	// bottom
 
 		resizable[0] = resizable[7] && resizable[4]; // bottom-left
 		resizable[1] = resizable[5] && resizable[4]; // top-left
 		resizable[2] = resizable[5] && resizable[6]; // top-right
 		resizable[3] = resizable[7] && resizable[6]; // bottom-right
 
-		bool canMove = true;
-		for (int i = 0; i < 4; ++i)
-		{
-			if (!resizable[i])
-			{
-				canMove = false;
-				break;
-			}
-		}
-
-		UIWidget.Pivot pivotUnderMouse = UIWidgetInspector.GetPivotUnderMouse(handles, e, resizable, canMove, ref actionUnderMouse);
+		UIWidget.Pivot pivotUnderMouse = UIWidgetInspector.GetPivotUnderMouse(handles, e, resizable, true, ref actionUnderMouse);
 
 		switch (type)
 		{
@@ -169,29 +182,32 @@ public class UIPanelInspector : UIRectEditor
 
 			case EventType.MouseDown:
 			{
-				mStartMouse = e.mousePosition;
-				mAllowSelection = true;
-
-				if (e.button == 1)
+				if (actionUnderMouse != UIWidgetInspector.Action.None)
 				{
-					if (e.modifiers == 0)
+					mStartMouse = e.mousePosition;
+					mAllowSelection = true;
+
+					if (e.button == 1)
 					{
+						if (e.modifiers == 0)
+						{
+							GUIUtility.hotControl = GUIUtility.keyboardControl = id;
+							e.Use();
+						}
+					}
+					else if (e.button == 0 && actionUnderMouse != UIWidgetInspector.Action.None &&
+						UIWidgetInspector.Raycast(handles, out mStartDrag))
+					{
+						mWorldPos = t.position;
+						mLocalPos = t.localPosition;
+						mStartRot = t.localRotation.eulerAngles;
+						mStartDir = mStartDrag - t.position;
+						mStartCR = mPanel.baseClipRegion;
+						mDragPivot = pivotUnderMouse;
+						mActionUnderMouse = actionUnderMouse;
 						GUIUtility.hotControl = GUIUtility.keyboardControl = id;
 						e.Use();
 					}
-				}
-				else if (e.button == 0 && actionUnderMouse != UIWidgetInspector.Action.None &&
-					UIWidgetInspector.Raycast(handles, out mStartDrag))
-				{
-					mWorldPos = t.position;
-					mLocalPos = t.localPosition;
-					mStartRot = t.localRotation.eulerAngles;
-					mStartDir = mStartDrag - t.position;
-					mStartCR = mPanel.baseClipRegion;
-					mDragPivot = pivotUnderMouse;
-					mActionUnderMouse = actionUnderMouse;
-					GUIUtility.hotControl = GUIUtility.keyboardControl = id;
-					e.Use();
 				}
 			}
 			break;
@@ -242,8 +258,8 @@ public class UIPanelInspector : UIRectEditor
 				}
 				else if (mAllowSelection)
 				{
-					BetterList<UIWidget> widgets = NGUIEditorTools.SceneViewRaycast(e.mousePosition);
-					if (widgets.size > 0) Selection.activeGameObject = widgets[0].gameObject;
+					List<UIWidget> widgets = NGUIEditorTools.SceneViewRaycast(e.mousePosition);
+					if (widgets.Count > 0) Selection.activeGameObject = widgets[0].gameObject;
 				}
 				mAllowSelection = true;
 			}
@@ -273,20 +289,16 @@ public class UIPanelInspector : UIRectEditor
 									if (mActionUnderMouse == UIWidgetInspector.Action.Move)
 									{
 										NGUISnap.Recalculate(mPanel);
-										NGUIEditorTools.RegisterUndo("Move panel", t);
 									}
 									else if (mActionUnderMouse == UIWidgetInspector.Action.Rotate)
 									{
 										mStartRot = t.localRotation.eulerAngles;
 										mStartDir = mStartDrag - t.position;
-										NGUIEditorTools.RegisterUndo("Rotate panel", t);
 									}
 									else if (mActionUnderMouse == UIWidgetInspector.Action.Scale)
 									{
 										mStartCR = mPanel.baseClipRegion;
 										mDragPivot = pivotUnderMouse;
-										NGUIEditorTools.RegisterUndo("Scale panel", t);
-										NGUIEditorTools.RegisterUndo("Scale panel", mPanel);
 									}
 									mAction = actionUnderMouse;
 								}
@@ -294,11 +306,19 @@ public class UIPanelInspector : UIRectEditor
 
 							if (mAction != UIWidgetInspector.Action.None)
 							{
+								NGUIEditorTools.RegisterUndo("Change Rect", t);
+								NGUIEditorTools.RegisterUndo("Change Rect", mPanel);
+
 								if (mAction == UIWidgetInspector.Action.Move)
 								{
+									Vector3 before = t.position;
+									Vector3 beforeLocal = t.localPosition;
 									t.position = mWorldPos + (pos - mStartDrag);
-									t.localPosition = NGUISnap.Snap(t.localPosition, mPanel.localCorners,
-										e.modifiers != EventModifiers.Control);
+									pos = NGUISnap.Snap(t.localPosition, mPanel.localCorners,
+										e.modifiers != EventModifiers.Control) - beforeLocal;
+									t.position = before;
+
+									NGUIMath.MoveRect(mPanel, pos.x, pos.y);
 								}
 								else if (mAction == UIWidgetInspector.Action.Rotate)
 								{
@@ -334,30 +354,30 @@ public class UIPanelInspector : UIRectEditor
 			{
 				if (e.keyCode == KeyCode.UpArrow)
 				{
-					Vector3 pos = t.localPosition;
-					pos.y += 1f;
-					t.localPosition = pos;
+					NGUIEditorTools.RegisterUndo("Nudge Rect", t);
+					NGUIEditorTools.RegisterUndo("Nudge Rect", mPanel);
+					NGUIMath.MoveRect(mPanel, 0f, 1f);
 					e.Use();
 				}
 				else if (e.keyCode == KeyCode.DownArrow)
 				{
-					Vector3 pos = t.localPosition;
-					pos.y -= 1f;
-					t.localPosition = pos;
+					NGUIEditorTools.RegisterUndo("Nudge Rect", t);
+					NGUIEditorTools.RegisterUndo("Nudge Rect", mPanel);
+					NGUIMath.MoveRect(mPanel, 0f, -1f);
 					e.Use();
 				}
 				else if (e.keyCode == KeyCode.LeftArrow)
 				{
-					Vector3 pos = t.localPosition;
-					pos.x -= 1f;
-					t.localPosition = pos;
+					NGUIEditorTools.RegisterUndo("Nudge Rect", t);
+					NGUIEditorTools.RegisterUndo("Nudge Rect", mPanel);
+					NGUIMath.MoveRect(mPanel, -1f, 0f);
 					e.Use();
 				}
 				else if (e.keyCode == KeyCode.RightArrow)
 				{
-					Vector3 pos = t.localPosition;
-					pos.x += 1f;
-					t.localPosition = pos;
+					NGUIEditorTools.RegisterUndo("Nudge Rect", t);
+					NGUIEditorTools.RegisterUndo("Nudge Rect", mPanel);
+					NGUIMath.MoveRect(mPanel, 1f, 0f);
 					e.Use();
 				}
 				else if (e.keyCode == KeyCode.Escape)
@@ -365,21 +385,7 @@ public class UIPanelInspector : UIRectEditor
 					if (GUIUtility.hotControl == id)
 					{
 						if (mAction != UIWidgetInspector.Action.None)
-						{
-							if (mAction == UIWidgetInspector.Action.Move)
-							{
-								t.position = mWorldPos;
-							}
-							else if (mAction == UIWidgetInspector.Action.Rotate)
-							{
-								t.localRotation = Quaternion.Euler(mStartRot);
-							}
-							else if (mAction == UIWidgetInspector.Action.Scale)
-							{
-								t.position = mWorldPos;
-								mPanel.baseClipRegion = mStartCR;
-							}
-						}
+							Undo.PerformUndo();
 
 						GUIUtility.hotControl = 0;
 						GUIUtility.keyboardControl = 0;
@@ -425,13 +431,16 @@ public class UIPanelInspector : UIRectEditor
 
 				if (UIPanelTool.instance != null)
 					UIPanelTool.instance.Repaint();
+
+				if (UIDrawCallViewer.instance != null)
+					UIDrawCallViewer.instance.Repaint();
 			}
 		}
 		GUILayout.EndHorizontal();
 
 		int matchingDepths = 0;
 
-		for (int i = 0; i < UIPanel.list.size; ++i)
+		for (int i = 0, imax = UIPanel.list.Count; i < imax; ++i)
 		{
 			UIPanel p = UIPanel.list[i];
 			if (p != null && mPanel.depth == p.depth)
@@ -451,18 +460,68 @@ public class UIPanelInspector : UIRectEditor
 			EditorUtility.SetDirty(mPanel);
 		}
 
+		// Contributed by Benzino07: http://www.tasharen.com/forum/index.php?topic=6956.15
+		GUILayout.BeginHorizontal();
+		{
+			EditorGUILayout.PrefixLabel("Sorting Layer");
+
+			// Get the names of the Sorting layers
+			System.Type internalEditorUtilityType = typeof(InternalEditorUtility);
+			PropertyInfo sortingLayersProperty = internalEditorUtilityType.GetProperty("sortingLayerNames", BindingFlags.Static | BindingFlags.NonPublic);
+			string[] names = (string[])sortingLayersProperty.GetValue(null, new object[0]);
+
+			int index = 0;
+			if (!string.IsNullOrEmpty(mPanel.sortingLayerName))
+			{
+				for (int i = 0; i < names.Length; i++)
+				{
+					if (mPanel.sortingLayerName == names[i])
+					{
+						index = i;
+						break;
+					}
+				}
+			}
+
+			// Get the selected index and update the panel sorting layer if it has changed
+			int selectedIndex = EditorGUILayout.Popup(index, names);
+
+			if (index != selectedIndex)
+			{
+				mPanel.sortingLayerName = names[selectedIndex];
+				EditorUtility.SetDirty(mPanel);
+			}
+		}
+		GUILayout.EndHorizontal();
+
 		if (mPanel.clipping != UIDrawCall.Clipping.None)
 		{
 			Vector4 range = mPanel.baseClipRegion;
 
+			// Scroll view is anchored, meaning it adjusts the offset itself, so we don't want it to be modifiable
+			//EditorGUI.BeginDisabledGroup(mPanel.GetComponent<UIScrollView>() != null);
+			GUI.changed = false;
 			GUILayout.BeginHorizontal();
 			GUILayout.Space(80f);
-			Vector2 pos = EditorGUILayout.Vector2Field("Center", new Vector2(range.x, range.y));
+			Vector3 off = EditorGUILayout.Vector2Field("Offset", mPanel.clipOffset, GUILayout.MinWidth(20f));
+			GUILayout.EndHorizontal();
+
+			if (GUI.changed)
+			{
+				NGUIEditorTools.RegisterUndo("Clipping Change", mPanel);
+				mPanel.clipOffset = off;
+				EditorUtility.SetDirty(mPanel);
+			}
+			//EditorGUI.EndDisabledGroup();
+
+			GUILayout.BeginHorizontal();
+			GUILayout.Space(80f);
+			Vector2 pos = EditorGUILayout.Vector2Field("Center", new Vector2(range.x, range.y), GUILayout.MinWidth(20f));
 			GUILayout.EndHorizontal();
 
 			GUILayout.BeginHorizontal();
 			GUILayout.Space(80f);
-			Vector2 size = EditorGUILayout.Vector2Field("Size", new Vector2(range.z, range.w));
+			Vector2 size = EditorGUILayout.Vector2Field("Size", new Vector2(range.z, range.w), GUILayout.MinWidth(20f));
 			GUILayout.EndHorizontal();
 
 			if (size.x < 0f) size.x = 0f;
@@ -484,11 +543,11 @@ public class UIPanelInspector : UIRectEditor
 			{
 				GUILayout.BeginHorizontal();
 				GUILayout.Space(80f);
-				Vector2 soft = EditorGUILayout.Vector2Field("Softness", mPanel.clipSoftness);
+				Vector2 soft = EditorGUILayout.Vector2Field("Softness", mPanel.clipSoftness, GUILayout.MinWidth(20f));
 				GUILayout.EndHorizontal();
 
-				if (soft.x < 1f) soft.x = 1f;
-				if (soft.y < 1f) soft.y = 1f;
+				if (soft.x < 0f) soft.x = 0f;
+				if (soft.y < 0f) soft.y = 0f;
 
 				if (mPanel.clipSoftness != soft)
 				{
@@ -496,6 +555,22 @@ public class UIPanelInspector : UIRectEditor
 					mPanel.clipSoftness = soft;
 					EditorUtility.SetDirty(mPanel);
 				}
+			}
+			else if (mPanel.clipping == UIDrawCall.Clipping.TextureMask)
+			{
+				NGUIEditorTools.SetLabelWidth(0f);
+				GUILayout.Space(-90f);
+				Texture2D tex = (Texture2D)EditorGUILayout.ObjectField(mPanel.clipTexture,
+					typeof(Texture2D), false, GUILayout.Width(70f), GUILayout.Height(70f));
+				GUILayout.Space(20f);
+
+				if (mPanel.clipTexture != tex)
+				{
+					NGUIEditorTools.RegisterUndo("Clipping Change", mPanel);
+					mPanel.clipTexture = tex;
+					EditorUtility.SetDirty(mPanel);
+				}
+				NGUIEditorTools.SetLabelWidth(80f);
 			}
 		}
 
@@ -519,7 +594,7 @@ public class UIPanelInspector : UIRectEditor
 			if (mPanel.renderQueue != rq)
 			{
 				mPanel.renderQueue = rq;
-				UIPanel.RebuildAllDrawCalls(true);
+				mPanel.RebuildAllDrawCalls();
 				EditorUtility.SetDirty(mPanel);
 				if (UIDrawCallViewer.instance != null)
 					UIDrawCallViewer.instance.Repaint();
@@ -532,13 +607,17 @@ public class UIPanelInspector : UIRectEditor
 				if (mPanel.startingRenderQueue != sq)
 				{
 					mPanel.startingRenderQueue = sq;
-					UIPanel.RebuildAllDrawCalls(true);
+					mPanel.RebuildAllDrawCalls();
 					EditorUtility.SetDirty(mPanel);
 					if (UIDrawCallViewer.instance != null)
 						UIDrawCallViewer.instance.Repaint();
 				}
 			}
 			GUILayout.EndHorizontal();
+
+			GUI.changed = false;
+			int so = EditorGUILayout.IntField("Sort Order", mPanel.sortingOrder, GUILayout.Width(120f));
+			if (GUI.changed) mPanel.sortingOrder = so;
 
 			GUILayout.BeginHorizontal();
 			bool norms = EditorGUILayout.Toggle("Normals", mPanel.generateNormals, GUILayout.Width(100f));
@@ -548,7 +627,7 @@ public class UIPanelInspector : UIRectEditor
 			if (mPanel.generateNormals != norms)
 			{
 				mPanel.generateNormals = norms;
-				UIPanel.RebuildAllDrawCalls(true);
+				mPanel.RebuildAllDrawCalls();
 				EditorUtility.SetDirty(mPanel);
 			}
 
@@ -560,7 +639,7 @@ public class UIPanelInspector : UIRectEditor
 			if (mPanel.cullWhileDragging != cull)
 			{
 				mPanel.cullWhileDragging = cull;
-				UIPanel.RebuildAllDrawCalls(true);
+				mPanel.RebuildAllDrawCalls();
 				EditorUtility.SetDirty(mPanel);
 			}
 
@@ -572,7 +651,26 @@ public class UIPanelInspector : UIRectEditor
 			if (mPanel.alwaysOnScreen != alw)
 			{
 				mPanel.alwaysOnScreen = alw;
-				UIPanel.RebuildAllDrawCalls(true);
+				mPanel.RebuildAllDrawCalls();
+				EditorUtility.SetDirty(mPanel);
+			}
+
+			GUILayout.BeginHorizontal();
+			NGUIEditorTools.DrawProperty("Padding", serializedObject, "softBorderPadding", GUILayout.Width(100f));
+			GUILayout.Label("Soft border pads content", GUILayout.MinWidth(20f));
+			GUILayout.EndHorizontal();
+
+			GUILayout.BeginHorizontal();
+			EditorGUI.BeginDisabledGroup(mPanel.GetComponent<UIRoot>() != null);
+			bool off = EditorGUILayout.Toggle("Offset", mPanel.anchorOffset && mPanel.GetComponent<UIRoot>() == null, GUILayout.Width(100f));
+			GUILayout.Label("Offset anchors by position", GUILayout.MinWidth(20f));
+			EditorGUI.EndDisabledGroup();
+			GUILayout.EndHorizontal();
+
+			if (mPanel.anchorOffset != off)
+			{
+				mPanel.anchorOffset = off;
+				mPanel.RebuildAllDrawCalls();
 				EditorUtility.SetDirty(mPanel);
 			}
 
@@ -584,7 +682,7 @@ public class UIPanelInspector : UIRectEditor
 			if (mPanel.widgetsAreStatic != stat)
 			{
 				mPanel.widgetsAreStatic = stat;
-				UIPanel.RebuildAllDrawCalls(true);
+				mPanel.RebuildAllDrawCalls();
 				EditorUtility.SetDirty(mPanel);
 			}
 
@@ -637,7 +735,7 @@ public class UIPanelInspector : UIRectEditor
 	/// Adjust the panel's position and clipping rectangle.
 	/// </summary>
 
-	static void AdjustClipping (UIPanel p, Vector3 startLocalPos, Vector4 startCR, Vector3 worldDelta, UIWidget.Pivot pivot)
+	void AdjustClipping (UIPanel p, Vector3 startLocalPos, Vector4 startCR, Vector3 worldDelta, UIWidget.Pivot pivot)
 	{
 		Transform t = p.cachedTransform;
 		Transform parent = t.parent;
@@ -702,7 +800,7 @@ public class UIPanelInspector : UIRectEditor
 	/// Adjust the panel's clipping rectangle based on the specified modifier values.
 	/// </summary>
 
-	static void AdjustClipping (UIPanel p, Vector4 cr, int left, int top, int right, int bottom)
+	void AdjustClipping (UIPanel p, Vector4 cr, int left, int top, int right, int bottom)
 	{
 		// Make adjustment values dividable by two since the clipping is centered
 		right	= ((right  >> 1) << 1);
@@ -727,5 +825,6 @@ public class UIPanelInspector : UIRectEditor
 		if ((height & 1) == 1) ++height;
 
 		p.baseClipRegion = new Vector4(x, y, width, height);
+		UpdateAnchors(false);
 	}
 }

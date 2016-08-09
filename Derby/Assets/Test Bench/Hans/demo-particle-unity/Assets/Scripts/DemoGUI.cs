@@ -223,7 +223,7 @@ public class DemoGUI : MonoBehaviour
 
         Material[] materials;
 
-        materials = playground.renderer.materials;
+        materials = playground.GetComponent<Renderer>().materials;
         
         playgroundMaterial = new Material(Shader.Find("Diffuse"));
 
@@ -259,7 +259,7 @@ public class DemoGUI : MonoBehaviour
         texture.wrapMode = TextureWrapMode.Repeat;
         gridTexture.wrapMode = TextureWrapMode.Repeat;
 
-        playground.renderer.materials = materials;
+        playground.GetComponent<Renderer>().materials = materials;
     }
 
     /// <summary>
@@ -299,13 +299,13 @@ public class DemoGUI : MonoBehaviour
                         float alpha = 1.0f;
                         if (!p.IsLocal && p.UpdateAge > 500)
                         {
-                            cube.renderer.material.shader = Shader.Find("Transparent/Diffuse");
+                            cube.GetComponent<Renderer>().material.shader = Shader.Find("Transparent/Diffuse");
                             alpha = (p.UpdateAge > 1000) ? 0.3f : 0.8f;
                         }
                         cube.transform.localScale = localScale;
 
                         Color cubeColor = DemoGUI.IntToColor(p.Color);
-                        cube.renderer.material.color = new Color(cubeColor.r, cubeColor.g, cubeColor.b, alpha);
+                        cube.GetComponent<Renderer>().material.color = new Color(cubeColor.r, cubeColor.g, cubeColor.b, alpha);
                         cube.transform.position = new Vector3(p.PosX * localScale.x + localScale.x / 2, scaleRatio / 2, p.PosY * localScale.y + localScale.y / 2);
                         break;
                     }

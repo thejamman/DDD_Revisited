@@ -146,14 +146,14 @@ public class CarControl : MonoBehaviour {
 	
 	void InitCarRigidbodyProperties()
 	{
-		this.rigidbody.centerOfMass = new Vector3(this.CenterOfMassX, this.CenterOfMassY, this.CenterOfMassZ);
-		m_BodyCenterOfMass = this.rigidbody.centerOfMass;
+		this.GetComponent<Rigidbody>().centerOfMass = new Vector3(this.CenterOfMassX, this.CenterOfMassY, this.CenterOfMassZ);
+		m_BodyCenterOfMass = this.GetComponent<Rigidbody>().centerOfMass;
 	}
 	
 	void FixedUpdate () 
 	{
-		this.rigidbody.centerOfMass = m_BodyCenterOfMass;
-		rigidbody.drag = rigidbody.velocity.magnitude / 250;
+		this.GetComponent<Rigidbody>().centerOfMass = m_BodyCenterOfMass;
+		GetComponent<Rigidbody>().drag = GetComponent<Rigidbody>().velocity.magnitude / 250;
 		
 		this.EngineRPM = Mathf.Abs(this.BackLeftWheel.rpm + this.BackRightWheel.rpm)/2 * this.GearRatio[m_CurrentGear] * this.DifferentialRatio;
 		if ( this.EngineRPM>10000) {this.EngineRPM =10000;}
@@ -168,7 +168,7 @@ public class CarControl : MonoBehaviour {
 		this.FrontLeftWheel.steerAngle = 35 * InputController.Left_X;
 		this.FrontRightWheel.steerAngle = 35 * InputController.Left_X;
 		
-		if(rigidbody.velocity.magnitude > this.TopSpeed)
+		if(GetComponent<Rigidbody>().velocity.magnitude > this.TopSpeed)
         {
 			this.BackLeftWheel.motorTorque = 0;
 			this.BackRightWheel.motorTorque = 0;

@@ -26,9 +26,9 @@ public class ExplosionControl : MonoBehaviour {
 		
         foreach (Collider hit in colliders)
 		{
-            if (hit.rigidbody)
+            if (hit.GetComponent<Rigidbody>())
 			{
-                hit.rigidbody.AddExplosionForce(100, explosionPos, 10, 3.0F);
+                hit.GetComponent<Rigidbody>().AddExplosionForce(100, explosionPos, 10, 3.0F);
 			}
         }
 		
@@ -57,6 +57,6 @@ public class ExplosionControl : MonoBehaviour {
 	{
 		//Debug.Log (m_DistanceFromOrigin);
 		yield return new WaitForSeconds(m_DistanceFromOrigin/m_SoundMetersPerSeconds);
-		audio.PlayOneShot(m_ExplosionSound);
+		GetComponent<AudioSource>().PlayOneShot(m_ExplosionSound);
 	}
 }
